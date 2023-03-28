@@ -9,6 +9,7 @@
         <module name="Meta-javacv" />
         <module name="Meta-common-log" />
         <module name="Meta-common-core" />
+        <module name="Meta-iflytek-sdk" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

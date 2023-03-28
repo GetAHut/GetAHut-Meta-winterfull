@@ -27,6 +27,9 @@
         <spring-alibaba.version>2021.0.4.0</spring-alibaba.version>
         <lombok.version>1.18.22</lombok.version>
         <commons.io.version>2.11.0</commons.io.version>
+        <fastjson2.version>2.0.25</fastjson2.version>
+        <httpclient.version>4.5.11</httpclient.version>
+        <httpcore.version>4.4.15</httpcore.version>
     </properties>
 
     <dependencyManagement>
@@ -79,6 +82,25 @@
                 <groupId>com.meta</groupId>
                 <artifactId>Meta-common-log</artifactId>
                 <version>${meta.version}</version>
+            </dependency>
+
+            <!-- http -->
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>${httpcore.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpclient.version}</version>
+                <scope>compile</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
             </dependency>
 
         </dependencies>
