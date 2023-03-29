@@ -1,18 +1,19 @@
 package com.winterfull.asr;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.winterfull.asr.domain.AsrResult;
 import com.winterfull.asr.http.MetaIflytekHttpUtils;
 import com.winterfull.asr.sign.MetaIflytekSign;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.security.SignatureException;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 讯飞转写sdk调用
@@ -28,6 +29,10 @@ public class AsrSdkService {
     private static final String appid = "d96b9cbe";
     private static final String secret = "9ee261d10c340a2d1f36b3a1b8bca187";
     private static final String callBackUrl = "";
+    private static final String CALLBACK_FAILED = "-1";
+
+    // TODO 本地缓存 -> redis
+    private static Map<String, String> cache = new ConcurrentHashMap<>();
 
 
     /**
@@ -51,20 +56,28 @@ public class AsrSdkService {
         MetaIflytekSign metaIflytekSign = new MetaIflytekSign(appid, secret);
         map.put("signa", metaIflytekSign.doSign());
         map.put("ts", metaIflytekSign.getTimestamp());
-//        map.put("callbackUrl", callBackUrl);
+        if (StringUtils.isNotBlank(callBackUrl)){
+            map.put("callbackUrl", callBackUrl);
+        }
 
         String paramString = MetaIflytekHttpUtils.parseMapToPathParam(map);
-        System.out.println("upload paramString:" + paramString);
-
+        log.debug("[traceId = {}] iflytek asr sdk upload paramString : {}", traceId, paramString);
         String url = HOST + "/v2/api/upload" + "?" + paramString;
         log.debug("[traceId = {}] iflytek asr sdk upload url : {}", traceId, url);
         String response = MetaIflytekHttpUtils.iflytekUpload(url, new FileInputStream(audio));
-
         log.info("[traceId = {}] iflytek asr sdk call upload success, result : {}", traceId, response);
+        setCache(traceId, response);
         return response;
     }
 
-    public static String getResult(String traceId, String orderId) throws InterruptedException, SignatureException {
+    private static void setCache(String traceId, String response){
+        JSONObject json = JSONObject.parse(response);
+        String content = json.getString("content");
+        String orderId = JSONObject.parse(content).getString("orderId");
+        cache.put(orderId, traceId);
+    }
+
+    public static String getResult(String traceId, String orderId, boolean isSync) throws InterruptedException, SignatureException {
         log.info("[traceId = {}] iflytek asr sdk call get result start...", traceId);
         HashMap<String, Object> map = new HashMap<>(16);
         map.put("orderId", orderId);
@@ -76,40 +89,72 @@ public class AsrSdkService {
         String paramString = MetaIflytekHttpUtils.parseMapToPathParam(map);
         String url = HOST + "/v2/api/getResult" + "?" + paramString;
         log.info("[traceId = {}] iflytek asr sdk call get result url : {}", traceId, url);
-        while (true) {
+        return doGetResult(traceId, url, isSync);
+    }
+
+    /**
+     *
+     * @param traceId
+     * @param orderId
+     * @return
+     * @throws InterruptedException
+     * @throws SignatureException
+     */
+    public static String getResult(String traceId, String orderId) throws InterruptedException, SignatureException {
+        return getResult(traceId, orderId, true);
+    }
+
+    /**
+     * GET http://ip:prot/server/xxx?orderId=DKHJQ202004291620042916580FBC96690001F&status=1
+     * @param orderId
+     * @param status
+     * @return
+     */
+    public static String callBack(String orderId, String status) throws SignatureException, InterruptedException {
+        if (CALLBACK_FAILED.equals(status)){
+            // TODO
+            throw new RuntimeException("回调失败");
+        }
+        if (!cache.get(orderId).equals(orderId)){
+            throw new RuntimeException("订单丢失");
+        }
+        return getResult(cache.get(orderId), orderId, false);
+    }
+
+    private static String doGetResult(String traceId, String url, boolean isSync) throws InterruptedException {
+        while (isSync) {
             String response = MetaIflytekHttpUtils.iflyrecGet(url);
             log.debug("[traceId = {}] iflytek asr sdk call get result : {}", traceId, response);
-            AsrResult result = JSONObject.parseObject(response, AsrResult.class);
-//            Integer status = result.getContent().getOrderInfo().getInteger("status");
-            JSONObject content = result.getContent();
-            String orderInfo = content.getString("orderInfo");
-            Integer status = JSONObject.parse(orderInfo).getInteger("status");
+            Integer status = getResultCode(response);
             if (status == 4) {
                 log.debug("[traceId = {}] iflytek asr sdk call get result end : {}", traceId, response);
                 return response;
             } else if (status == -1) {
                 log.debug("[traceId = {}] iflytek asr sdk call get result failed : {}", traceId, response);
-                break;
+                // TODO
+                throw new RuntimeException("");
             } else {
                 log.debug("[traceId = {}] iflytek asr sdk call get result doing...  status : {}", traceId, status);
-                //建议使用回调的方式查询结果，查询接口有请求频率限制
                 Thread.sleep(7000);
             }
+        }
+        String response = MetaIflytekHttpUtils.iflyrecGet(url);
+        log.debug("[traceId = {}] iflytek asr sdk call get result : {}", traceId, response);
+        Integer status = getResultCode(response);
+        if (status == 4){
+            log.debug("[traceId = {}] iflytek asr sdk call get result end : {}", traceId, response);
+            return response;
         }
         return null;
     }
 
-    class JsonParse {
-        Content content;
+    private static Integer getResultCode(String response){
+        AsrResult result = JSONObject.parseObject(response, AsrResult.class);
+        JSONObject content = result.getContent();
+        String orderInfo = content.getString("orderInfo");
+        return JSONObject.parse(orderInfo).getInteger("status");
     }
 
-    class Content {
-        OrderInfo orderInfo;
-    }
-
-    class OrderInfo {
-        Integer status;
-    }
 
     public static void main(String[] args) throws FileNotFoundException, InterruptedException, SignatureException {
         String filePath = "D:\\project\\iflytek-workspace\\words\\tool\\video-audio\\合成音频.wav";

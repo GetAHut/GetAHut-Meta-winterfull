@@ -84,6 +84,13 @@
                 <version>${meta.version}</version>
             </dependency>
 
+            <!-- iflytek sdk -->
+            <dependency>
+                <groupId>com.meta</groupId>
+                <artifactId>Meta-iflytek-sdk</artifactId>
+                <version>${meta.version}</version>
+            </dependency>
+
             <!-- http -->
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
