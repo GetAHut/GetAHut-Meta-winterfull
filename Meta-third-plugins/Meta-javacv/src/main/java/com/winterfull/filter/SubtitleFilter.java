@@ -1,13 +1,17 @@
 package com.winterfull.filter;
 
+import com.winterfull.config.MetaSubtitleProperties;
 import com.winterfull.domain.Subtitle;
 import com.winterfull.enums.ActionType;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.ffmpeg.global.avutil;
 import org.bytedeco.javacv.Frame;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 
+import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
@@ -95,6 +99,7 @@ public class SubtitleFilter extends ImageFilter{
 
     @Override
     public void push(Frame frame) throws Exception {
-        this.push(0, frame, avutil.AV_PIX_FMT_BGRA);
+//        this.push(0, frame, avutil.AV_PIX_FMT_BGRA);
+        super.push(frame);
     }
 }

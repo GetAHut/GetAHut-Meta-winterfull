@@ -7,9 +7,11 @@ import com.winterfull.enums.SimpleRateType;
 import com.winterfull.filter.SubtitleFilter;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.javacv.*;
+import org.bytedeco.opencv.opencv_core.Mat;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static com.winterfull.utils.FileCommonUtils.filePathAppend;
 
@@ -82,40 +84,48 @@ public class FfmpegService implements AutoCloseable{
 
     }
 
-    public void videoAddSubtitle(){
+    public void videoAddSubtitle(Subtitle subtitle){
         String fileName;
-        Frame frame;
         try {
             this.grabber.start();
             //
             fileName = filePathAppend(new File(sourcePath), "video", this.traceId, "mp4");
             subTitleRecorder = new FFmpegFrameRecorder(fileName, 1);
 
-            subTitleRecorder.setFormat("mp4");
-            subTitleRecorder.setTimestamp(grabber.getTimestamp());
-            subTitleRecorder.setImageWidth(grabber.getImageWidth());
-            subTitleRecorder.setImageHeight(grabber.getImageHeight());
-            subTitleRecorder.start();
-            setSubtitleFilter("你好你好你好你好", grabber.getImageHeight(), grabber.getImageWidth());
-            while ((frame = this.grabber.grab()) != null){
-                if (this.subtitleFilter != null && this.subtitleFilter.start){
-                    this.subtitleFilter.push(frame);
-                    frame = this.subtitleFilter.pullImage();
-                }
-                subTitleRecorder.record(frame);
+            this.subTitleRecorder.setFormat("mp4");
+            this.subTitleRecorder.setVideoCodec(this.grabber.getVideoCodec());
+            this.subTitleRecorder.setFrameRate(this.grabber.getFrameRate());
+            this.subTitleRecorder.setTimestamp(this.grabber.getTimestamp());
+            this.subTitleRecorder.setImageWidth(this.grabber.getImageWidth());
+            this.subTitleRecorder.setImageHeight(this.grabber.getImageHeight());
+
+            this.subTitleRecorder.start();
+            setSubtitleFilter(subtitle, this.grabber.getImageHeight(), this.grabber.getImageWidth());
+
+            for (int i = 0; i < this.grabber.getLengthInFrames(); i++) {
+                // Grab the next frame from the video file
+                Frame frame = this.grabber.grab();
+
+                // Filter the frame to add subtitles
+                this.subtitleFilter.push(frame);
+                Frame filteredFrame = this.subtitleFilter.pull();
+
+                this.subTitleRecorder.record(filteredFrame);
             }
-            subTitleRecorder.stop();
-            subTitleRecorder.release();
-            grabber.stop();
+
+            this.subTitleRecorder.stop();
+            this.subTitleRecorder.release();
+            this.grabber.stop();
 
         } catch (Exception e){
-
+            log.error("message : {}", e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    public void setSubtitleFilter(String subtitle, int height, int width) throws FrameFilter.Exception {
-        this.subtitleFilter = new SubtitleFilter(new Subtitle());
-        this.subtitleFilter.subtitleProcess(subtitle, height, width);
+    public void setSubtitleFilter(Subtitle subtitle, int height, int width) throws FrameFilter.Exception {
+        this.subtitleFilter = new SubtitleFilter(subtitle);
+        this.subtitleFilter.subtitleProcess(subtitle.getText(), height, width);
     }
 
     @Override
