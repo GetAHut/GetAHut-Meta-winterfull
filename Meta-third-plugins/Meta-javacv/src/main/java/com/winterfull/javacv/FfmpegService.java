@@ -11,6 +11,7 @@ import org.bytedeco.opencv.opencv_core.Mat;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.nio.Buffer;
 import java.nio.file.Path;
 
 import static com.winterfull.utils.FileCommonUtils.filePathAppend;
@@ -98,19 +99,35 @@ public class FfmpegService implements AutoCloseable{
             this.subTitleRecorder.setTimestamp(this.grabber.getTimestamp());
             this.subTitleRecorder.setImageWidth(this.grabber.getImageWidth());
             this.subTitleRecorder.setImageHeight(this.grabber.getImageHeight());
+            this.subTitleRecorder.setVideoBitrate(this.grabber.getVideoBitrate());
+
+            // audio settings
+            this.subTitleRecorder.setAudioCodec(this.grabber.getAudioCodec());
+            this.subTitleRecorder.setSampleRate(this.grabber.getSampleRate());
+            this.subTitleRecorder.setAudioBitrate(this.grabber.getAudioBitrate());
 
             this.subTitleRecorder.start();
             setSubtitleFilter(subtitle, this.grabber.getImageHeight(), this.grabber.getImageWidth());
 
             for (int i = 0; i < this.grabber.getLengthInFrames(); i++) {
                 // Grab the next frame from the video file
+                // image and video can not get all
+                // TODO 音频速度过快。
                 Frame frame = this.grabber.grab();
-
-                // Filter the frame to add subtitles
-                this.subtitleFilter.push(frame);
-                Frame filteredFrame = this.subtitleFilter.pull();
-
-                this.subTitleRecorder.record(filteredFrame);
+                if (frame != null){
+                    Buffer[] samples = frame.samples;
+                    frame = this.grabber.grabImage();
+                    if (frame != null){
+                        if (this.subtitleFilter != null && this.subtitleFilter.started){
+                            this.subtitleFilter.push(frame);
+                            frame = this.subtitleFilter.pullImage();
+                        }
+                        frame.samples = samples;
+//                        frame.sampleRate = this.grabber.getSampleRate();
+//                        frame.audioChannels = 1;
+                        this.subTitleRecorder.record(frame);
+                    }
+                }
             }
 
             this.subTitleRecorder.stop();

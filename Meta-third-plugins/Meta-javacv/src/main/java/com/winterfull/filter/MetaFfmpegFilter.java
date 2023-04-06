@@ -10,7 +10,7 @@ import org.bytedeco.javacv.FFmpegFrameFilter;
 public class MetaFfmpegFilter extends FFmpegFrameFilter {
 
     /** 状态控制 */
-    public volatile boolean start = false;
+    public volatile boolean started = false;
 
     protected ActionType actionType;
 

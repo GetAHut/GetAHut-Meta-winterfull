@@ -29,9 +29,9 @@ public class SubtitleFilter extends ImageFilter{
     }
 
     public void subtitleProcess(String subtitle, int imageHeight, int imageWidth) throws Exception {
-        if (start){
+        if (started){
             this.stop();
-            this.start = false;
+            this.started = false;
         }
         this.filters = createSubtitleFilter(subtitle);
         this.imageHeight = imageHeight;
@@ -88,18 +88,18 @@ public class SubtitleFilter extends ImageFilter{
     @Override
     public void start() throws Exception {
         super.start();
-        this.start = true;
+        this.started = true;
     }
 
     @Override
     public void stop() throws Exception {
         super.stop();
-        this.start = false;
+        this.started = false;
     }
 
     @Override
     public void push(Frame frame) throws Exception {
-//        this.push(0, frame, avutil.AV_PIX_FMT_BGRA);
-        super.push(frame);
+        this.push(0, frame);
+        // super.push(frame);
     }
 }
