@@ -1,18 +1,14 @@
 package com.winterfull.javacv;
 
-import com.winterfull.asr.domain.Lattices;
 import com.winterfull.domain.Subtitle;
 import com.winterfull.enums.AudioFormat;
 import com.winterfull.enums.SimpleRateType;
+import com.winterfull.enums.VideoFormat;
 import com.winterfull.filter.SubtitleFilter;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.javacv.*;
-import org.bytedeco.opencv.opencv_core.Mat;
-import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.nio.Buffer;
-import java.nio.file.Path;
 
 import static com.winterfull.utils.FileCommonUtils.filePathAppend;
 
@@ -89,11 +85,41 @@ public class FfmpegService implements AutoCloseable{
         String fileName;
         try {
             this.grabber.start();
-            //
             fileName = filePathAppend(new File(sourcePath), "video", this.traceId, "mp4");
-            subTitleRecorder = new FFmpegFrameRecorder(fileName, 1);
+            prepare(fileName, VideoFormat.MP4);
 
-            this.subTitleRecorder.setFormat("mp4");
+            setSubtitleFilter(subtitle, this.grabber.getImageHeight(), this.grabber.getImageWidth());
+            Frame frame;
+            int frameIndex = 0;
+            while ((frame = this.grabber.grab()) != null) {
+                // Grab the next frame from the video file
+                // image and video can not get all
+                if (frame.samples != null) {
+                    this.subTitleRecorder.record(frame);
+                }
+                if (frame.image != null) {
+                    if (this.subtitleFilter != null && this.subtitleFilter.started) {
+                        this.subtitleFilter.push(frame);
+                        frame = this.subtitleFilter.pullImage();
+                    }
+                    this.subTitleRecorder.record(frame);
+                }
+                ++ frameIndex;
+            }
+            this.subTitleRecorder.stop();
+            this.subTitleRecorder.release();
+            this.grabber.stop();
+
+        } catch (Exception e){
+            log.error("message : {}", e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void prepare(String fileName, VideoFormat format){
+        try {
+            this.subTitleRecorder = new FFmpegFrameRecorder(fileName, 1);
+            this.subTitleRecorder.setFormat(format.getFormat());
             this.subTitleRecorder.setVideoCodec(this.grabber.getVideoCodec());
             this.subTitleRecorder.setFrameRate(this.grabber.getFrameRate());
             this.subTitleRecorder.setTimestamp(this.grabber.getTimestamp());
@@ -105,38 +131,9 @@ public class FfmpegService implements AutoCloseable{
             this.subTitleRecorder.setAudioCodec(this.grabber.getAudioCodec());
             this.subTitleRecorder.setSampleRate(this.grabber.getSampleRate());
             this.subTitleRecorder.setAudioBitrate(this.grabber.getAudioBitrate());
-
             this.subTitleRecorder.start();
-            setSubtitleFilter(subtitle, this.grabber.getImageHeight(), this.grabber.getImageWidth());
-
-            for (int i = 0; i < this.grabber.getLengthInFrames(); i++) {
-                // Grab the next frame from the video file
-                // image and video can not get all
-                // TODO 音频速度过快。
-                Frame frame = this.grabber.grab();
-                if (frame != null){
-                    Buffer[] samples = frame.samples;
-                    frame = this.grabber.grabImage();
-                    if (frame != null){
-                        if (this.subtitleFilter != null && this.subtitleFilter.started){
-                            this.subtitleFilter.push(frame);
-                            frame = this.subtitleFilter.pullImage();
-                        }
-                        frame.samples = samples;
-//                        frame.sampleRate = this.grabber.getSampleRate();
-//                        frame.audioChannels = 1;
-                        this.subTitleRecorder.record(frame);
-                    }
-                }
-            }
-
-            this.subTitleRecorder.stop();
-            this.subTitleRecorder.release();
-            this.grabber.stop();
-
-        } catch (Exception e){
-            log.error("message : {}", e.getMessage());
-            e.printStackTrace();
+        } catch (FrameRecorder.Exception e) {
+            throw new RuntimeException(e);
         }
     }
 

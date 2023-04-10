@@ -28,6 +28,13 @@ public class SubtitleFilter extends ImageFilter{
         this.settings = subtitle;
     }
 
+    /**
+     *  TODO 视频字幕通过iflytek 转写服务生成
+     * @param subtitle
+     * @param imageHeight
+     * @param imageWidth
+     * @throws Exception
+     */
     public void subtitleProcess(String subtitle, int imageHeight, int imageWidth) throws Exception {
         if (started){
             this.stop();
@@ -85,6 +92,10 @@ public class SubtitleFilter extends ImageFilter{
         return subtitleFilterBuilder.toString();
     }
 
+    public void prepareFilter(Frame frame, int frameIndex){
+
+    }
+
     @Override
     public void start() throws Exception {
         super.start();
@@ -100,6 +111,5 @@ public class SubtitleFilter extends ImageFilter{
     @Override
     public void push(Frame frame) throws Exception {
         this.push(0, frame);
-        // super.push(frame);
     }
 }

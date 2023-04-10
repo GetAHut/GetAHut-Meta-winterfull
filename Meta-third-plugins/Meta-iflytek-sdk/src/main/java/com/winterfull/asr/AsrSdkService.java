@@ -45,6 +45,9 @@ public class AsrSdkService {
      */
     public static String upload(String traceId, String filePath, String audioDuration) throws FileNotFoundException, SignatureException {
         log.info("[traceId = {}] iflytek asr sdk call upload start...", traceId );
+        if (cache.get(traceId) != null){
+            return cache.get(traceId);
+        }
         HashMap<String, Object> map = new HashMap<>(16);
         File audio = new File(filePath);
         String fileName = audio.getName();
@@ -66,15 +69,15 @@ public class AsrSdkService {
         log.debug("[traceId = {}] iflytek asr sdk upload url : {}", traceId, url);
         String response = MetaIflytekHttpUtils.iflytekUpload(url, new FileInputStream(audio));
         log.info("[traceId = {}] iflytek asr sdk call upload success, result : {}", traceId, response);
-        setCache(traceId, response);
-        return response;
+        String orderId = getOrderId(response);
+        cache.put(traceId, orderId);
+        return orderId;
     }
 
-    private static void setCache(String traceId, String response){
+    private static String getOrderId(String response){
         JSONObject json = JSONObject.parse(response);
         String content = json.getString("content");
-        String orderId = JSONObject.parse(content).getString("orderId");
-        cache.put(orderId, traceId);
+        return JSONObject.parse(content).getString("orderId");
     }
 
     public static String getResult(String traceId, String orderId, boolean isSync) throws InterruptedException, SignatureException {
