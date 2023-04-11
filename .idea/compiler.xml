@@ -10,6 +10,7 @@
         <module name="Meta-common-log" />
         <module name="Meta-common-core" />
         <module name="Meta-iflytek-sdk" />
+        <module name="Meta-common-redis" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

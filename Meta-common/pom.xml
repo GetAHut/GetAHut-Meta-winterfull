@@ -15,6 +15,7 @@
     <modules>
         <module>Meta-common-core</module>
         <module>Meta-common-log</module>
+        <module>Meta-common-redis</module>
     </modules>
 
 </project>
